@@ -1,5 +1,5 @@
+//
 #include <SPI.h>
- 
 char buf [100];
 volatile byte pos;
 volatile boolean process_it;
@@ -26,14 +26,22 @@ volatile boolean process_it;
 #define PWM_RF 9 //PWM Pin for Right Front Motor
 #define PWM_RB 10 //PWM Pin for Right Back Motor
 //Define Motor Encoder Pins (Digital Input)
-#define ENC_LF_A //Encoder A Pin for Left Front Motor
-#define ENC_LF_B //Encoder B Pin for Left Front Motor
+#define ENC_LF_A 22 //Encoder A Pin for Left Front Motor
+#define ENC_RF_A 26 //Encoder A Pin for Right Front Motor
+#define ENC_LB_A 24 //Encoder A Pin for Left Back Motor
+#define ENC_RB_A 28 //Encoder A Pin for Right Back Motor
 
+//Define Directions
 #define LEFT 0
 #define RIGHT 1
 #define FORWARD 2
 #define BACKWARD 3
 
+//declare encoder counter variables, initially = 0, long int range: -2,147,483,648 to 2,147,483,647
+long int count_LeftFront = 0;
+long int count_RightFront = 0;
+long int count_LeftBack = 0;
+long int count_RightBack = 0;
 
 void setup() {
     // join I2C bus (I2Cdev library doesn't do this automatically)
@@ -55,10 +63,18 @@ void setup() {
   // now turn on interrupts
   SPI.attachInterrupt();
     
-    //Initialize Encoder Interrupt
-    //attachInterrupt(0, incrementEncoder_LeftFront, CHANGE);  //encoderB is on pin 2, Interrupt pin triggers program updating tickcount
-    //attachInterrupt(1, incrementEncoder_RightFront, CHANGE);  //encoderB is on pin 3, Interrupt pin triggers program updating tickcount
-}
+    //Initialize Encoder Interrupts for B signal
+    attachInterrupt(0, incrementEncoder_LeftFront, CHANGE);  //encoderB is on pin 2, Interrupt pin triggers program updating tickcount
+    attachInterrupt(2, incrementEncoder_RightFront, CHANGE);  //encoderB is on pin 21, Interrupt pin triggers program updating tickcount
+    attachInterrupt(1, incrementEncoder_LeftBack, CHANGE);  //encoderB is on pin 3, Interrupt pin triggers program updating tickcount
+    attachInterrupt(3, incrementEncoder_RightBack, CHANGE);  //encoderB is on pin 20, Interrupt pin triggers program updating tickcount
+    //For A Signal
+    pinMode( ENC_LF_A, INPUT);
+    pinMode( ENC_RF_A, INPUT);
+    pinMode( ENC_LB_A, INPUT);
+    pinMode( ENC_RB_A, INPUT);
+
+  }
 
 void loop() {
   //Turn Motors On
@@ -66,7 +82,7 @@ void loop() {
   //setDirection(RIGHT);
   //moveRobot(70, 3); 
   
-  if (process_it) {
+    if (process_it) {    //CODE FOR RASPB_PI COMMUNICATION
     buf [pos] = 0;  
     Serial.println (buf);
     pos = 0;
@@ -93,14 +109,25 @@ void loop() {
       moveRobot(50, 3); 
     }
     
-    
     memset(buf, 0, sizeof(buf));
   }
   
+ /* //move the robot forward for 5 seconds and print encoder counts
+  Serial.println(count_LeftFront);
+  Serial.println(count_RightFront);
+  Serial.println(count_LeftBack);
+  Serial.println(count_RightBack);
+  setDirection(FORWARD);
+  moveRobot(50,5);
+  Serial.println(count_LeftFront);
+  Serial.println(count_RightFront);
+  Serial.println(count_LeftBack);
+  Serial.println(count_RightBack);
+  while(1){
+  }*/
 }
 
 //SPI METHODS
-
 // SPI interrupt routine
 ISR (SPI_STC_vect) {
   byte c = SPDR;  // grab byte from SPI Data Register
@@ -118,7 +145,6 @@ ISR (SPI_STC_vect) {
 }  // end of interrupt routine SPI_STC_vect
 
 // Motor Data
-
 void initializeMotors(){
   //Set up Motor Power PWM Pins
     pinMode(PWM_LF, OUTPUT); //PWM Pin for Left Front Motor
@@ -130,7 +156,6 @@ void initializeMotors(){
     pinMode(DIR_LB, OUTPUT); //Direction Pin for Left Back Motor
     pinMode(DIR_RF, OUTPUT); //Direction Pin for Right Front Motor
     pinMode(DIR_RB, OUTPUT); //Direction Pin for Right Back Motor
-    
     //Initially Set Motors Off
     digitalWrite(PWM_LF,LOW);
     digitalWrite(PWM_LB,LOW);
@@ -155,7 +180,6 @@ void moveRobot(int power, int seconds){
   digitalWrite(PWM_LB,LOW);
   digitalWrite(PWM_RF,LOW);
   digitalWrite(PWM_RB,LOW);
-  
 } 
 
 void setDirection(int dir){
@@ -185,5 +209,37 @@ void setDirection(int dir){
       digitalWrite(DIR_RB, LOW);
     break;
   }
+}
 
+void incrementEncoder_LeftFront(){
+  if ( digitalRead(2)){//If Rising B Signal
+    //increment if A is high
+    if (ENC_LF_A) count_LeftFront++;
+    //decrement if A is low
+    else count_LeftFront--;
+  }
+}
+void incrementEncoder_RightFront(){
+  if( digitalRead(21) ){//If Rising B Signal
+    //increment if A is high
+    if (ENC_RF_A) count_RightFront++;
+    //decrement if A is low
+    else count_RightFront--;
+  }
+}
+void incrementEncoder_LeftBack(){
+  if( digitalRead(3) ){//If Rising B Signal
+    //increment if A is high
+    if (ENC_LB_A) count_LeftBack++;
+    //decrement if A is low
+    else count_LeftBack--;
+  }
+}
+void incrementEncoder_RightBack(){
+  if( digitalRead(20) ){//If Rising B Signal
+    //increment if A is high
+    if (ENC_RB_A) count_RightBack++;
+    //decrement if A is low
+    else count_RightBack--;
+  }
 }
